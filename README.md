@@ -110,3 +110,34 @@ Foi gerado o Gradle Wrapper com gradle wrapper. O projeto passou a conter gradle
 Pergunta: Que pressuposto escondido sobre o ambiente foi eliminado pelo Gradle Wrapper?
 O pressuposto de que quem compila o projeto tem o Gradle instalado e configurado no PATH, na versão certa. Com o wrapper, a versão do Gradle fica definida no próprio projeto (gradle/wrapper/gradle-wrapper.properties) e é descarregada automaticamente se não existir, por isso o build funciona da mesma forma em qualquer máquina, incluindo o GitHub Actions.
 
+## Evidência 8.5
+
+O projeto Gradle foi enviado para https://github.com/ines111006/fleetcheck-gradle e foi criado o workflow .github/workflows/build-gradle.yml. Em cada push ou pull request, o GitHub Actions usa uma máquina Ubuntu 24.04 com Java 21, executa ./gradlew clean build e guarda o JAR de build/libs como artefacto (fleetcheck-gradle-build). O gradlew foi marcado como executável antes do commit (git update-index --chmod=+x gradlew).
+
+Execução com sucesso: https://github.com/ines111006/fleetcheck-gradle/actions/runs/37239236606
+
+## Evidência 8.6
+
+Foi adicionado o plugin org.cyclonedx.bom (versão 3.4.1) ao build.gradle. O comando gradlew.bat cyclonedxBom gerou o ficheiro build/reports/cyclonedx/bom.json, que contém jackson-databind 2.22.2, jackson-core 2.22.2 e jackson-annotations 2.22.
+
+Porque é que o SBOM do Gradle contém dependências que não foram escritas no build.gradle?
+No build.gradle só foi declarada a dependência direta jackson-databind. O Gradle resolve automaticamente as dependências transitivas de que ela precisa (jackson-core e jackson-annotations), como se viu em gradle dependencies. O SBOM descreve o que realmente faz parte da aplicação em runtime, e não só o que foi escrito no ficheiro de build, por isso inclui todo o grafo de dependências: diretas e transitivas.
+
+## 8.7 Comparação Maven vs Gradle
+
+| Tarefa | Maven | Gradle |
+|---|---|---|
+| Configuração do build | pom.xml | build.gradle (+ settings.gradle) |
+| Build limpo | mvnw.cmd clean verify | gradlew.bat clean build |
+| Adicionar dependência | bloco <dependency>...</dependency> | implementation 'group:artifact:version' |
+| Ver dependências | mvn dependency:tree | gradle dependencies --configuration runtimeClasspath |
+| Wrapper | mvnw / mvnw.cmd + .mvn/wrapper | gradlew / gradlew.bat + gradle/wrapper |
+| Saída do build | target/ | build/ |
+| Localização do JAR | target/ (fleetcheck-1.0.0-all.jar) | build/libs/ (fleetcheck-1.0.0.jar) |
+| JAR executável | plugin maven-shade-plugin | plugin application + configuração da tarefa jar |
+| SBOM | CycloneDX Maven plugin → target/bom.json | CycloneDX Gradle plugin → build/reports/cyclonedx/bom.json |
+| CI | .github/workflows/build.yml | .github/workflows/build-gradle.yml |
+
+Pergunta final: Maven e Gradle construíram exatamente a mesma aplicação FleetCheck. O que mudou: o software ou o processo de build?
+Mudou apenas o processo de build. O código-fonte, os recursos, as dependências (diretas e transitivas, com as mesmas versões) e o resultado da execução (FleetCheck 1.0 | Vehicles loaded: 4 | Vehicles requiring service: 2 | Average mileage: 37000 km) foram iguais nas duas ferramentas. O que mudou foi a forma de descrever e executar o build: o formato do ficheiro de configuração, os comandos, as pastas de saída e os plugins usados para gerar o JAR executável e o SBOM.
+
